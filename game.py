@@ -1,9 +1,15 @@
 import pygame
-from math import sin, cos
+from math import sin, cos, sqrt
 from random import randint
 import os
 import sys
 from setup import SCREEN, WIDTH, HEIGHT, CLOCK, COLORS
+
+
+def dist(e1, e2):
+    d = sqrt(abs(e1.position.x - e2.position.x) ** 2 + abs(e1.position.y - e2.position.y) ** 2)
+    return d
+    
 
 class Tower:
     def __init__(self):
@@ -13,25 +19,42 @@ class Tower:
         self.bulletcount = 200
         self.bullets = [Bullet() for i in range(self.bulletcount)]
         self.health = 100
-        
-        
+        self.enemy_queue = []
+                
     def draw(self):
         pygame.draw.circle(SCREEN, COLORS["tower"], self.position, self.size)
         pygame.draw.circle(SCREEN, COLORS["debug"], self.position, self.range_, 1) # check the range
     
-    def shoot(self, enemy):
-        if (self.bullets != []):
-            self.bullets[0].move(enemy)
-            self.bullets[0].draw()
-            self.bulletcount = len(self.bullets)
-        else:
-            print("no bullets")
+    def shoot(self):
+        # How shall we implement this?
+        # -- shoot from `enemy_queue` until enemy_queue[0] dies
+        # -- then, `pop enemy_queue[0]` and continue
+        # -- we also need to check the collision between the bullet just fired, and the first enemy in the queue
+        # -- after a `collision`, we pop the bullet
+        if (self.bullets != [] and self.enemy_queue != []):
+            if self.enemy_queue[0].health != 0:
+                self.bullets[0].move(self.enemy_queue[0])
+                self.bullets[0].draw()
+                self.bulletcount = len(self.bullets)
+                if dist(self.bullets[0], self.enemy_queue[0]) < 5:
+                    # 5 is an approx val, try changing, if collision doesn't occur as expected
+                    self.enemy_queue[0].health -= self.bullets[0].damage
+                    self.bullets.pop(0)
+            else:
+                self.enemy_queue[0].living = False
+                self.enemy_queue.pop(0)
 
+        
+    def create_enemy_queue(self, enemy):
+        if dist(self, enemy) < self.range_ and enemy not in self.enemy_queue:
+            self.enemy_queue.append(enemy)
+                    
+        
 class Bullet:
     def __init__(self):
         self.size = 5
         self.position = pygame.Vector2(WIDTH / 2, HEIGHT / 2)
-        self.speed = 1
+        self.speed = 5
         self.damage = 5
                 
     def draw(self):
@@ -74,19 +97,24 @@ class Game:
 
             SCREEN.fill(COLORS["bg"])
             self.tower.draw()
+            self.tower.shoot()
+            
             for enemy in self.enemies:
-                enemy.draw()
-                enemy.move()
-                self.tower.shoot(enemy)
+                if enemy.living:
+                    enemy.draw()
+                    enemy.move()
+                    self.tower.create_enemy_queue(enemy)
 
+                
             # capture events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit(0)
-            
+
             pygame.display.flip()
             CLOCK.tick(30)
+            # print(len(self.tower.enemy_queue))
 
 
 if __name__ == "__main__":
